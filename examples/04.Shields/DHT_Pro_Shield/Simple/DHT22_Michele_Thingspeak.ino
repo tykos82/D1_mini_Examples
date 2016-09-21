@@ -1,4 +1,4 @@
-/* DHT Pro Shield - Simple
+/* DHT Pro Shield - THINGSPEAK
  *
  * Example testing sketch for various DHT humidity/temperature sensors
  * Written by ladyada, public domain
@@ -8,6 +8,13 @@
  */
 
 #include "DHT.h"
+#include <ESP8266WiFi.h>
+
+// CONFIGURAZIONE
+String apiKey = "10LA9GHWI6VC8CEY"; //SCRITTURA
+const char* ssid = "peroniwifi";
+const char* password = "viaArmandi55-viaArmandi55";
+const char* server = "api.thingspeak.com";
 
 #define DHTPIN D4     // what pin we're connected to
 
@@ -28,17 +35,33 @@
 // tweak the timings for faster processors.  This parameter is no longer needed
 // as the current DHT reading algorithm adjusts itself to work on faster procs.
 DHT dht(DHTPIN, DHTTYPE);
+WiFiClient client;
 
 void setup() {
   Serial.begin(9600);
   Serial.println("DHT22 test!");
 
   dht.begin();
+  
+  WiFi.begin(ssid, password);
+ 
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+ 
+  WiFi.begin(ssid, password);
+ 
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
 }
 
 void loop() {
-  // Wait a few seconds between measurements.
-  delay(2000);
 
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
@@ -54,22 +77,48 @@ void loop() {
     return;
   }
 
-  // Compute heat index in Fahrenheit (the default)
-  // float hif = dht.computeHeatIndex(f, h);
-  // Compute heat index in Celsius (isFahreheit = false)
-  float hic = dht.computeHeatIndex(t, h, false);
+  //INVIO DATI A THINGSPEAK
+  if (client.connect(server,80)) {
+    String postStr = apiKey;
+    postStr +="&field1=";
+    postStr += String(t);
+    postStr +="&field2=";
+    postStr += String(h);
+    postStr += "\r\n\r\n";
+ 
+    client.print("POST /update HTTP/1.1\n");
+    client.print("Host: api.thingspeak.com\n");
+    client.print("Connection: close\n");
+    client.print("X-THINGSPEAKAPIKEY: "+apiKey+"\n");
+    client.print("Content-Type: application/x-www-form-urlencoded\n");
+    client.print("Content-Length: ");
+    client.print(postStr.length());
+    client.print("\n\n");
+    client.print(postStr);
+    Serial.print("Temperature: ");
+    Serial.print(t);
+    Serial.print(" degrees Celsius Humidity: ");
+    Serial.print(h);
+    Serial.println("Sending data to Thingspeak");
+  }
+  client.stop();
+  
+  Serial.println("Waiting 20 secs");
+  // thingspeak needs at least a 15 sec delay between updates
+  // 20 seconds to be safe
+  delay(20000);
+  
 
-  Serial.print("Humidity: ");
-  Serial.print(h);
-  Serial.print(" %\t");
-  Serial.print("Temperature: ");
-  Serial.print(t);
-  Serial.print(" *C ");
-  // Serial.print(f);
-  // Serial.print(" *F\t");
-  Serial.print("Heat index: ");
-  Serial.print(hic);
-  Serial.print(" *C ");
-  // Serial.print(hif);
-  // Serial.println(" *F");
+  // Compute heat index in Celsius (isFahreheit = false)
+ // float hic = dht.computeHeatIndex(t, h, false);
+
+ // Serial.print("Humidity: ");
+  //Serial.print(h);
+  //Serial.print(" %\t");
+  //Serial.print("Temperature: ");
+  //Serial.print(t);
+  //Serial.print(" *C ");
+  //Serial.print("Heat index: ");
+  //Serial.print(hic);
+  //Serial.print(" *C ");
 }
